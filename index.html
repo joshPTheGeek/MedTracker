@@ -7,7 +7,7 @@
     <meta name="description" content="Private medication and mood logger via NFC tags" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' https://www.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+      content="default-src 'self'; script-src 'self' https://www.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://firestore.googleapis.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
     />
     <title>MedTracker</title>
     <link rel="stylesheet" href="css/styles.css" />
@@ -19,7 +19,7 @@
           <h1>MedTracker</h1>
           <span>Latuda · Lamotrigine · Mood</span>
         </div>
-        <button type="button" class="btn btn-ghost hidden" id="logout-btn">Sign out</button>
+        <button type="button" class="btn btn-ghost hidden" id="lock-btn">Lock</button>
       </header>
 
       <div id="boot-error" class="error-banner hidden"></div>
@@ -28,11 +28,10 @@
         <button type="button" data-view="view-home" class="active">Home</button>
         <button type="button" data-view="view-dashboard">History</button>
         <button type="button" data-view="view-mood">Mood</button>
-        <button type="button" data-view="view-login" id="nav-login">Sign in</button>
       </nav>
 
       <div class="auth-bar">
-        <span id="auth-label">Checking…</span>
+        <span id="access-label">Checking…</span>
       </div>
 
       <!-- HOME -->
@@ -40,8 +39,8 @@
         <div id="home-default" class="card">
           <h2>Scan a tag to log a dose</h2>
           <p class="lead">
-            Tap your phone to the Latuda or Lamotrigine NFC tag. The dose is saved automatically —
-            no sign-in required for scanning.
+            Tap your phone to the Latuda or Lamotrigine NFC tag. That logs the dose and unlocks
+            History and Mood on this phone — no email or password.
           </p>
           <ul class="log-list">
             <li>
@@ -60,7 +59,7 @@
             </li>
           </ul>
           <button type="button" class="btn btn-primary" id="open-dashboard" style="margin-top: 16px">
-            Open history (sign in)
+            Open history
           </button>
         </div>
 
@@ -73,26 +72,15 @@
         </div>
       </section>
 
-      <!-- LOGIN -->
-      <section id="view-login" class="hidden">
-        <div class="card">
-          <h2>Sign in to view history</h2>
-          <p class="lead">
-            Your password is stored only in Firebase Authentication — never in this website’s source
-            code on GitHub.
+      <!-- LOCKED -->
+      <section id="view-locked" class="hidden">
+        <div class="card status-screen">
+          <div class="status-icon warn">🔒</div>
+          <h2>Scan a tag to unlock</h2>
+          <p class="meta">
+            History and Mood open after you scan either medication tag (or open a tag URL once).
+            No email or password is used.
           </p>
-          <div id="login-error" class="error-banner hidden"></div>
-          <form id="login-form">
-            <label for="login-email">Email</label>
-            <input id="login-email" type="email" autocomplete="username" required />
-            <label for="login-password">Password</label>
-            <input id="login-password" type="password" autocomplete="current-password" required minlength="8" />
-            <button type="submit" class="btn btn-primary" id="login-submit">Sign in</button>
-          </form>
-          <p class="lead" style="margin-top: 16px; margin-bottom: 8px">
-            First time? Create your private account (only you should do this once):
-          </p>
-          <button type="button" class="btn btn-secondary" id="register-btn">Create account</button>
         </div>
       </section>
 
@@ -126,9 +114,13 @@
       <section id="view-mood" class="hidden">
         <div class="card">
           <h2>Mood check-in</h2>
-          <p class="lead">Use anytime — separate from medication scans.</p>
+          <p class="lead">Use anytime after a tag has unlocked this phone.</p>
           <div id="mood-error" class="error-banner hidden"></div>
-          <div id="mood-success" class="error-banner hidden" style="background: var(--success-soft); border-color: rgba(52,199,89,.4); color: #9dffb8"></div>
+          <div
+            id="mood-success"
+            class="error-banner hidden"
+            style="background: var(--success-soft); border-color: rgba(52,199,89,.4); color: #9dffb8"
+          ></div>
           <label>Score (1 = very low · 10 = very good)</label>
           <div class="mood-scale" id="mood-scale"></div>
           <label>How you feel (optional)</label>
@@ -144,7 +136,6 @@
       </p>
     </div>
 
-    <!-- Latuda food prompt (once/day) -->
     <div id="food-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="food-title">
       <div class="modal">
         <h2 id="food-title">Food check</h2>
@@ -156,7 +147,6 @@
       </div>
     </div>
 
-    <!-- Duplicate scan confirm -->
     <div id="dup-overlay" class="overlay hidden" role="dialog" aria-modal="true">
       <div class="modal">
         <h2>Already logged</h2>
@@ -168,7 +158,6 @@
       </div>
     </div>
 
-    <!-- Load config first (gitignored file — copy from example) -->
     <script src="js/firebase-config.js"></script>
     <script type="module" src="js/app.js"></script>
   </body>

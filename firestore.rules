@@ -2,18 +2,11 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // IMPORTANT: Replace WRITE_TOKEN_HERE with the same long random token
-    // you put on your NFC tags. Deploy these rules from Firebase Console
-    // or the Firebase CLI. Do not commit your real token to a public repo
-    // if your GitHub repo is public — keep a private copy of this file,
-    // or deploy rules only from your machine.
+    // Replace WRITE_TOKEN_HERE with the same token on both NFC tags.
+    // Deploy these rules in Firebase Console → Firestore → Rules → Publish.
     //
     // Generate a token (PowerShell):
     // -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Max 256) })
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
 
     function validWriteToken() {
       return request.resource.data.token == 'WRITE_TOKEN_HERE';
@@ -32,20 +25,28 @@ service cloud.firestore {
         && request.resource.data.medication is string;
     }
 
+    function validMoodLog() {
+      return request.resource.data.keys().hasAll(['moodScore', 'createdAtClient', 'dayKey', 'token'])
+        && validWriteToken()
+        && request.resource.data.moodScore is int
+        && request.resource.data.moodScore >= 1
+        && request.resource.data.moodScore <= 10
+        && request.resource.data.createdAtClient is string
+        && request.resource.data.dayKey is string;
+    }
+
     match /medicationLogs/{logId} {
-      // NFC scan: create only, with write token from the tag URL (no login)
+      // Writes require the NFC token. Reads are open so History works after a scan unlocks the phone UI.
+      // Keep your site + Firebase project private; do not share the token.
       allow create: if validMedLog();
-      // Dashboard: signed-in user can read / manage
-      allow read, update, delete: if isSignedIn();
+      allow read: if true;
+      allow update, delete: if false;
     }
 
     match /moodLogs/{logId} {
-      allow create: if isSignedIn()
-        && request.resource.data.keys().hasAll(['moodScore', 'createdAt', 'dayKey'])
-        && request.resource.data.moodScore is int
-        && request.resource.data.moodScore >= 1
-        && request.resource.data.moodScore <= 10;
-      allow read, update, delete: if isSignedIn();
+      allow create: if validMoodLog();
+      allow read: if true;
+      allow update, delete: if false;
     }
   }
 }

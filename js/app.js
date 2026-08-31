@@ -1,17 +1,10 @@
 /**
- * Medication NFC Logger
- * - NFC tag URLs log doses without signing in (token in URL)
- * - Dashboard / mood tracker require Firebase Auth (password never in source)
+ * MedTracker
+ * - NFC tag URL logs a dose and unlocks the whole app (same token)
+ * - No email/password — access is the NFC write token
  */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import {
-  getAuth,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut,
-  createUserWithEmailAndPassword,
-} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
   getFirestore,
   collection,
@@ -37,6 +30,8 @@ const MOOD_EMOJIS = [
   { id: "tired", label: "😴 Tired" },
   { id: "calm", label: "😌 Calm" },
 ];
+
+const TOKEN_STORAGE_KEY = "medNfc:accessToken";
 
 function $(id) {
   return document.getElementById(id);
@@ -73,7 +68,7 @@ function hide(el) {
 }
 
 function setView(name) {
-  ["view-home", "view-login", "view-dashboard", "view-mood"].forEach((id) => hide($(id)));
+  ["view-home", "view-locked", "view-dashboard", "view-mood"].forEach((id) => hide($(id)));
   show($(name));
   document.querySelectorAll(".nav-tabs button").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.view === name);
@@ -83,29 +78,45 @@ function setView(name) {
 function requireConfig() {
   if (!window.FIREBASE_CONFIG || window.FIREBASE_CONFIG.apiKey === "PASTE_API_KEY") {
     throw new Error(
-      "Firebase is not configured. Copy js/firebase-config.example.js to js/firebase-config.js and add your Firebase web app keys."
+      "Firebase is not configured. Add your Firebase web app keys to js/firebase-config.js."
     );
   }
 }
 
-let app, auth, db;
-let currentUser = null;
+function getStoredToken() {
+  return localStorage.getItem(TOKEN_STORAGE_KEY) || "";
+}
+
+function storeToken(token) {
+  if (token) localStorage.setItem(TOKEN_STORAGE_KEY, token);
+}
+
+function hasAccess() {
+  return Boolean(getStoredToken());
+}
+
+function updateAccessUi() {
+  const label = $("access-label");
+  if (hasAccess()) {
+    label.textContent = "Unlocked by NFC tag";
+    show($("lock-btn"));
+  } else {
+    label.textContent = "Locked — scan a tag to unlock";
+    hide($("lock-btn"));
+  }
+}
+
+let db;
 let selectedMoodScore = null;
 let selectedEmojis = new Set();
 
 function initFirebase() {
   requireConfig();
-  app = initializeApp(window.FIREBASE_CONFIG);
-  auth = getAuth(app);
+  const app = initializeApp(window.FIREBASE_CONFIG);
   db = getFirestore(app);
 }
 
 /* ---------- NFC / log flow ---------- */
-/*
- * Scan logging must work while signed out. Firestore reads require Auth,
- * so "once per day" UX for food / duplicate hints uses localStorage on this phone.
- * The dashboard (signed in) remains the durable source of truth in Firestore.
- */
 
 function foodPromptStorageKey() {
   return `medNfc:foodPrompt:${dayKey()}`;
@@ -152,7 +163,7 @@ function askFoodPrompt() {
   });
 }
 
-async function confirmDuplicate(medLabel, prior) {
+function confirmDuplicate(medLabel, prior) {
   return new Promise((resolve) => {
     const overlay = $("dup-overlay");
     $("dup-message").textContent = `${medLabel} was already logged today at ${formatWhen(
@@ -189,10 +200,27 @@ function showScanResult({ ok, title, detail, medId }) {
   }
 }
 
+function stripTokenFromUrl() {
+  const clean = new URL(window.location.href);
+  clean.searchParams.delete("token");
+  clean.searchParams.delete("t");
+  window.history.replaceState({}, "", clean.pathname + clean.search + clean.hash);
+}
+
 async function handleScanLog() {
   const p = params();
   const medId = (p.get("log") || p.get("med") || "").toLowerCase();
   const token = p.get("token") || p.get("t") || "";
+
+  // Token-only URL unlocks the app without logging a dose
+  if (token && !medId) {
+    storeToken(token);
+    updateAccessUi();
+    stripTokenFromUrl();
+    setView("view-dashboard");
+    await loadDashboard();
+    return true;
+  }
 
   if (!medId || !token) return false;
   if (!MEDS[medId]) {
@@ -203,6 +231,9 @@ async function handleScanLog() {
     });
     return true;
   }
+
+  storeToken(token);
+  updateAccessUi();
 
   setView("view-home");
   hide($("home-default"));
@@ -223,9 +254,10 @@ async function handleScanLog() {
         showScanResult({
           ok: true,
           title: "Already logged",
-          detail: `${MEDS[medId].label} at ${formatWhen(prior.takenAt)}. No new entry saved.`,
+          detail: `${MEDS[medId].label} at ${formatWhen(prior.takenAt)}. App unlocked — open History anytime.`,
           medId,
         });
+        stripTokenFromUrl();
         return true;
       }
       show($("scan-spinner"));
@@ -259,8 +291,8 @@ async function handleScanLog() {
     });
 
     markLoggedLocal(medId, takenAt);
-
     hide($("scan-spinner"));
+
     const foodLine =
       ateCalories === null
         ? ""
@@ -270,15 +302,10 @@ async function handleScanLog() {
     showScanResult({
       ok: true,
       title: `${MEDS[medId].label} logged`,
-      detail: `${formatWhen(takenAt)}.${foodLine} You can close this page.`,
+      detail: `${formatWhen(takenAt)}.${foodLine} History and Mood are unlocked on this phone.`,
       medId,
     });
-
-    // Clean token from address bar so it is less likely to linger in history
-    const clean = new URL(window.location.href);
-    clean.searchParams.delete("token");
-    clean.searchParams.delete("t");
-    window.history.replaceState({}, "", clean.pathname + clean.search + clean.hash);
+    stripTokenFromUrl();
   } catch (err) {
     console.error(err);
     hide($("scan-spinner"));
@@ -296,19 +323,7 @@ async function handleScanLog() {
   return true;
 }
 
-/* ---------- Auth / dashboard ---------- */
-
-async function login(email, password) {
-  await signInWithEmailAndPassword(auth, email, password);
-}
-
-async function register(email, password) {
-  await createUserWithEmailAndPassword(auth, email, password);
-}
-
-async function logout() {
-  await signOut(auth);
-}
+/* ---------- Dashboard ---------- */
 
 async function loadDashboard() {
   const errEl = $("dash-error");
@@ -320,11 +335,7 @@ async function loadDashboard() {
 
   try {
     const today = dayKey();
-    const medQ = query(
-      collection(db, "medicationLogs"),
-      orderBy("takenAt", "desc"),
-      limit(40)
-    );
+    const medQ = query(collection(db, "medicationLogs"), orderBy("takenAt", "desc"), limit(40));
     const medSnap = await getDocs(medQ);
     const meds = medSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
@@ -398,7 +409,7 @@ async function loadDashboard() {
     show(errEl);
     errEl.textContent =
       err?.code === "permission-denied"
-        ? "Signed in, but Firestore denied read access. Publish firestore.rules and wait a minute."
+        ? "Firestore denied read access. Publish the updated firestore.rules (reads no longer need email login)."
         : err?.message || "Failed to load logs.";
   }
 }
@@ -447,9 +458,9 @@ function renderMoodControls() {
 async function saveMood() {
   const errEl = $("mood-error");
   hide(errEl);
-  if (!currentUser) {
-    show(errEl);
-    errEl.textContent = "Sign in to save a mood entry.";
+  const token = getStoredToken();
+  if (!token) {
+    setView("view-locked");
     return;
   }
   if (!selectedMoodScore) {
@@ -471,7 +482,7 @@ async function saveMood() {
       dayKey: dayKey(),
       createdAtClient,
       createdAt: serverTimestamp(),
-      uid: currentUser.uid,
+      token,
     });
     $("mood-note").value = "";
     selectedMoodScore = null;
@@ -489,72 +500,46 @@ async function saveMood() {
   }
 }
 
-/* ---------- Wire UI ---------- */
+function requireAccessOrLock(view) {
+  if (!hasAccess()) {
+    setView("view-locked");
+    return false;
+  }
+  setView(view);
+  return true;
+}
 
 function wireUi() {
   document.querySelectorAll(".nav-tabs button").forEach((btn) => {
     btn.addEventListener("click", () => {
       const view = btn.dataset.view;
-      if ((view === "view-dashboard" || view === "view-mood") && !currentUser) {
-        setView("view-login");
+      if (view === "view-dashboard") {
+        if (requireAccessOrLock(view)) loadDashboard();
+        return;
+      }
+      if (view === "view-mood") {
+        if (requireAccessOrLock(view)) renderMoodControls();
         return;
       }
       setView(view);
-      if (view === "view-dashboard") loadDashboard();
-      if (view === "view-mood") renderMoodControls();
+      if (view === "view-home") {
+        show($("home-default"));
+        hide($("home-scan-result"));
+      }
     });
   });
 
-  $("login-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const err = $("login-error");
-    hide(err);
-    const email = $("login-email").value.trim();
-    const password = $("login-password").value;
-    $("login-submit").disabled = true;
-    try {
-      await login(email, password);
-    } catch (ex) {
-      show(err);
-      err.textContent = ex?.message || "Sign-in failed.";
-    } finally {
-      $("login-submit").disabled = false;
-    }
+  $("lock-btn").addEventListener("click", () => {
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    updateAccessUi();
+    setView("view-home");
+    show($("home-default"));
+    hide($("home-scan-result"));
   });
 
-  $("register-btn").addEventListener("click", async () => {
-    const err = $("login-error");
-    hide(err);
-    const email = $("login-email").value.trim();
-    const password = $("login-password").value;
-    if (password.length < 8) {
-      show(err);
-      err.textContent = "Use a password of at least 8 characters.";
-      return;
-    }
-    $("register-btn").disabled = true;
-    try {
-      await register(email, password);
-    } catch (ex) {
-      show(err);
-      err.textContent =
-        ex?.code === "auth/operation-not-allowed"
-          ? "Enable Email/Password sign-in in Firebase Authentication."
-          : ex?.message || "Could not create account.";
-    } finally {
-      $("register-btn").disabled = false;
-    }
-  });
-
-  $("logout-btn").addEventListener("click", () => logout());
   $("mood-save").addEventListener("click", () => saveMood());
   $("open-dashboard").addEventListener("click", () => {
-    if (currentUser) {
-      setView("view-dashboard");
-      loadDashboard();
-    } else {
-      setView("view-login");
-    }
+    if (requireAccessOrLock("view-dashboard")) loadDashboard();
   });
 }
 
@@ -565,7 +550,7 @@ async function main() {
   } catch (err) {
     show(bootError);
     bootError.textContent = err.message;
-    $("auth-label").textContent = "Firebase not configured";
+    $("access-label").textContent = "Firebase not configured";
     setView("view-home");
     show($("home-default"));
     hide($("home-scan-result"));
@@ -575,20 +560,7 @@ async function main() {
 
   wireUi();
   renderMoodControls();
-
-  onAuthStateChanged(auth, (user) => {
-    currentUser = user;
-    const authLabel = $("auth-label");
-    if (user) {
-      authLabel.textContent = user.email || "Signed in";
-      show($("logout-btn"));
-      hide($("nav-login"));
-    } else {
-      authLabel.textContent = "Not signed in";
-      hide($("logout-btn"));
-      show($("nav-login"));
-    }
-  });
+  updateAccessUi();
 
   const handled = await handleScanLog();
   if (!handled) {

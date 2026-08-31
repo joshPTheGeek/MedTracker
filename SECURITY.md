@@ -13,9 +13,10 @@
 
 1. **No npm install** on your machine for this app — avoids the current npm worm ecosystem.
 2. **Browser loads Firebase only from Google’s CDN**, pinned version in `js/app.js` (`firebasejs/10.14.1`).
-3. **Dashboard password** lives in **Firebase Authentication**, never in GitHub source.
-4. **NFC write token** belongs in **Firestore rules** (you deploy in Firebase Console) and on the physical tags — not in public docs as a real value.
+3. **No email/password.** The NFC write token unlocks the phone UI after a scan.
+4. **NFC write token** belongs in **Firestore rules** (you deploy in Firebase Console) and on the physical tags — not in public docs as a real value. Writes require that token; keep tags private.
 5. **Content-Security-Policy** in `index.html` limits scripts to `self` + `https://www.gstatic.com`.
+6. Firestore **reads** are allowed so History works without Auth. Do not publicly advertise the Firebase project; prefer a private GitHub repo if you can.
 
 ## Your responsibilities
 

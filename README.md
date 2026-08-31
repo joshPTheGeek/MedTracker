@@ -15,7 +15,7 @@ Tracks the medications I am taking.
 - Latuda only: once per day asks *“Did you eat 300 calories in the last hour?”*
 - History of doses with day and time
 - Mood tracker: 1–10 scale + emoji tags + optional note
-- Dashboard password via **Firebase Auth** (not hardcoded in this repo)
+- **No email/password** — scanning a tag unlocks History and Mood on that phone
 
 ## Docs
 
@@ -34,8 +34,7 @@ This app uses **no npm packages**. The browser loads a **pinned** Firebase SDK f
 1. Fill in `js/firebase-config.js` from Firebase Console → Project settings → Web app.
 2. Publish `firestore.rules` (replace `WRITE_TOKEN_HERE`) in Firebase Console.
 3. Enable GitHub Pages on branch `main` / root.
-4. Create your Auth account from the site’s **Create account** once.
-5. Write NFC tags per [`NFC-TAGS.md`](NFC-TAGS.md).
+4. Write NFC tags per [`NFC-TAGS.md`](NFC-TAGS.md).
 
 ## Disclaimer
 
