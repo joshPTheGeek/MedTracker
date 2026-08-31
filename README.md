@@ -2,6 +2,8 @@
 
 Personal web app: tap an NFC tag → log **Latuda** or **Lamotrigine** (date + time). View history and use an on-demand mood tracker after signing in.
 
+Tracks the medications I am taking.
+
 - **GitHub:** [joshPTheGeek/MedTracker](https://github.com/joshPTheGeek/MedTracker)
 - **Site (after you enable Pages):** https://joshPTheGeek.github.io/MedTracker/
 - **Firebase project:** `medtracker-a0fe7`
