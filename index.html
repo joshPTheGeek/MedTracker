@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f1419" />
+    <meta name="description" content="Private medication and mood logger via NFC tags" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' https://www.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+    />
+    <title>MedTracker</title>
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <div class="brand">
+          <h1>MedTracker</h1>
+          <span>Latuda · Lamotrigine · Mood</span>
+        </div>
+        <button type="button" class="btn btn-ghost hidden" id="logout-btn">Sign out</button>
+      </header>
+
+      <div id="boot-error" class="error-banner hidden"></div>
+
+      <nav class="nav-tabs" aria-label="Main">
+        <button type="button" data-view="view-home" class="active">Home</button>
+        <button type="button" data-view="view-dashboard">History</button>
+        <button type="button" data-view="view-mood">Mood</button>
+        <button type="button" data-view="view-login" id="nav-login">Sign in</button>
+      </nav>
+
+      <div class="auth-bar">
+        <span id="auth-label">Checking…</span>
+      </div>
+
+      <!-- HOME -->
+      <section id="view-home">
+        <div id="home-default" class="card">
+          <h2>Scan a tag to log a dose</h2>
+          <p class="lead">
+            Tap your phone to the Latuda or Lamotrigine NFC tag. The dose is saved automatically —
+            no sign-in required for scanning.
+          </p>
+          <ul class="log-list">
+            <li>
+              <div>
+                <div class="title">Latuda tag</div>
+                <div class="sub">Asks once per day about 300 calories</div>
+              </div>
+              <div class="time">NFC</div>
+            </li>
+            <li>
+              <div>
+                <div class="title">Lamotrigine tag</div>
+                <div class="sub">Logs time only</div>
+              </div>
+              <div class="time">NFC</div>
+            </li>
+          </ul>
+          <button type="button" class="btn btn-primary" id="open-dashboard" style="margin-top: 16px">
+            Open history (sign in)
+          </button>
+        </div>
+
+        <div id="home-scan-result" class="card status-screen hidden">
+          <div id="scan-spinner" class="spinner hidden"></div>
+          <div id="scan-icon" class="status-icon info">…</div>
+          <div id="scan-med-badge" class="med-badge hidden"></div>
+          <h2 id="scan-title">Working…</h2>
+          <p class="meta" id="scan-detail">Please wait.</p>
+        </div>
+      </section>
+
+      <!-- LOGIN -->
+      <section id="view-login" class="hidden">
+        <div class="card">
+          <h2>Sign in to view history</h2>
+          <p class="lead">
+            Your password is stored only in Firebase Authentication — never in this website’s source
+            code on GitHub.
+          </p>
+          <div id="login-error" class="error-banner hidden"></div>
+          <form id="login-form">
+            <label for="login-email">Email</label>
+            <input id="login-email" type="email" autocomplete="username" required />
+            <label for="login-password">Password</label>
+            <input id="login-password" type="password" autocomplete="current-password" required minlength="8" />
+            <button type="submit" class="btn btn-primary" id="login-submit">Sign in</button>
+          </form>
+          <p class="lead" style="margin-top: 16px; margin-bottom: 8px">
+            First time? Create your private account (only you should do this once):
+          </p>
+          <button type="button" class="btn btn-secondary" id="register-btn">Create account</button>
+        </div>
+      </section>
+
+      <!-- DASHBOARD -->
+      <section id="view-dashboard" class="hidden">
+        <div id="dash-error" class="error-banner hidden"></div>
+        <div class="card">
+          <h2>Today</h2>
+          <div class="today-grid">
+            <div class="today-pill" id="latuda-pill">
+              <div class="name">Latuda</div>
+              <div class="state" id="latuda-state">—</div>
+            </div>
+            <div class="today-pill" id="lamotrigine-pill">
+              <div class="name">Lamotrigine</div>
+              <div class="state" id="lamotrigine-state">—</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Medication history</h2>
+          <ul class="log-list" id="med-log-list"></ul>
+        </div>
+        <div class="card">
+          <h2>Recent mood</h2>
+          <ul class="log-list" id="mood-log-list"></ul>
+        </div>
+      </section>
+
+      <!-- MOOD -->
+      <section id="view-mood" class="hidden">
+        <div class="card">
+          <h2>Mood check-in</h2>
+          <p class="lead">Use anytime — separate from medication scans.</p>
+          <div id="mood-error" class="error-banner hidden"></div>
+          <div id="mood-success" class="error-banner hidden" style="background: var(--success-soft); border-color: rgba(52,199,89,.4); color: #9dffb8"></div>
+          <label>Score (1 = very low · 10 = very good)</label>
+          <div class="mood-scale" id="mood-scale"></div>
+          <label>How you feel (optional)</label>
+          <div class="emoji-row" id="emoji-row"></div>
+          <label for="mood-note">Note (optional)</label>
+          <textarea id="mood-note" placeholder="Anything worth remembering…"></textarea>
+          <button type="button" class="btn btn-primary" id="mood-save">Save mood</button>
+        </div>
+      </section>
+
+      <p class="footer-note">
+        Personal wellness tool — not a substitute for medical advice. Keep your NFC write token private.
+      </p>
+    </div>
+
+    <!-- Latuda food prompt (once/day) -->
+    <div id="food-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="food-title">
+      <div class="modal">
+        <h2 id="food-title">Food check</h2>
+        <p>Did you eat 300 calories in the last hour?</p>
+        <div class="btn-row">
+          <button type="button" class="btn btn-secondary" id="food-no">No</button>
+          <button type="button" class="btn btn-success" id="food-yes">Yes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Duplicate scan confirm -->
+    <div id="dup-overlay" class="overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal">
+        <h2>Already logged</h2>
+        <p id="dup-message"></p>
+        <div class="btn-row">
+          <button type="button" class="btn btn-secondary" id="dup-no">Cancel</button>
+          <button type="button" class="btn btn-primary" id="dup-yes">Log again</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Load config first (gitignored file — copy from example) -->
+    <script src="js/firebase-config.js"></script>
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>
