@@ -1,6 +1,6 @@
 # MedTracker
 
-Personal web app: tap an NFC tag → log **Latuda** or **Lamotrigine** (date + time). View history and use an on-demand mood tracker after signing in.
+Personal web app: tap an NFC tag → log **Latuda**, **Lamotrigine**, or **Pantoprazole** (date + time). View history and use an on-demand mood tracker.
 
 Tracks the medications I am taking.
 
@@ -11,8 +11,9 @@ Tracks the medications I am taking.
 ## Features
 
 - NFC scan logs **without signing in** (write token on the tag URL)
-- Separate tags for Latuda and Lamotrigine
-- Latuda only: once per day asks *“Did you eat 300 calories in the last hour?”*
+- Separate tags for Latuda, Lamotrigine, and Pantoprazole
+- Latuda: once per day asks *“Did you eat 300 calories in the last hour?”*
+- Pantoprazole: once per day asks *“Will you wait 30 minutes before eating?”*
 - History of doses with day and time
 - Mood tracker: 1–10 scale + emoji tags + optional note
 - **No email/password** — scanning a tag unlocks History and Mood on that phone

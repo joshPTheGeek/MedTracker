@@ -2,7 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Replace WRITE_TOKEN_HERE with the same token on both NFC tags.
+    // Replace WRITE_TOKEN_HERE with the same token on all NFC tags.
     // Deploy these rules in Firebase Console → Firestore → Rules → Publish.
     //
     // Generate a token (PowerShell):
@@ -13,7 +13,7 @@ service cloud.firestore {
     }
 
     function validMedication() {
-      return request.resource.data.medication in ['latuda', 'lamotrigine'];
+      return request.resource.data.medication in ['latuda', 'lamotrigine', 'pantoprazole'];
     }
 
     function validMedLog() {

@@ -14,6 +14,7 @@
   --danger: #ff6b6b;
   --latuda: #7c6af5;
   --lamotrigine: #2ec4b6;
+  --pantoprazole: #f0a202;
   --radius: 16px;
   --shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
   --font: "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -290,6 +291,11 @@ textarea {
   color: #8ef0e6;
 }
 
+.med-badge.pantoprazole {
+  background: rgba(240, 162, 2, 0.2);
+  color: #ffd78a;
+}
+
 /* Food prompt modal */
 .overlay {
   position: fixed;
@@ -329,9 +335,15 @@ textarea {
 /* Dashboard */
 .today-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 10px;
   margin-bottom: 16px;
+}
+
+@media (min-width: 420px) {
+  .today-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .today-pill {

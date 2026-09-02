@@ -17,8 +17,26 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const MEDS = {
-  latuda: { id: "latuda", label: "Latuda", needsFoodPrompt: true },
-  lamotrigine: { id: "lamotrigine", label: "Lamotrigine", needsFoodPrompt: false },
+  latuda: {
+    id: "latuda",
+    label: "Latuda",
+    prompt: {
+      kind: "calories",
+      title: "Food check",
+      message: "Did you eat 300 calories in the last hour?",
+    },
+  },
+  lamotrigine: { id: "lamotrigine", label: "Lamotrigine", prompt: null },
+  pantoprazole: {
+    id: "pantoprazole",
+    label: "Pantoprazole",
+    prompt: {
+      kind: "wait30",
+      title: "Before food",
+      message:
+        "Pantoprazole is taken in the morning, 30 minutes before food. Will you wait 30 minutes before eating?",
+    },
+  },
 };
 
 const MOOD_EMOJIS = [
@@ -118,20 +136,20 @@ function initFirebase() {
 
 /* ---------- NFC / log flow ---------- */
 
-function foodPromptStorageKey() {
-  return `medNfc:foodPrompt:${dayKey()}`;
+function promptStorageKey(medId) {
+  return `medNfc:prompt:${medId}:${dayKey()}`;
 }
 
 function medLoggedStorageKey(medId) {
   return `medNfc:logged:${medId}:${dayKey()}`;
 }
 
-function hasFoodAnswerTodayLocal() {
-  return localStorage.getItem(foodPromptStorageKey()) === "1";
+function hasPromptAnswerTodayLocal(medId) {
+  return localStorage.getItem(promptStorageKey(medId)) === "1";
 }
 
-function markFoodAnsweredLocal() {
-  localStorage.setItem(foodPromptStorageKey(), "1");
+function markPromptAnsweredLocal(medId) {
+  localStorage.setItem(promptStorageKey(medId), "1");
 }
 
 function priorLogTodayLocal(medId) {
@@ -148,9 +166,11 @@ function markLoggedLocal(medId, takenAt) {
   localStorage.setItem(medLoggedStorageKey(medId), JSON.stringify({ takenAt }));
 }
 
-function askFoodPrompt() {
+function askYesNoPrompt({ title, message }) {
   return new Promise((resolve) => {
     const overlay = $("food-overlay");
+    $("food-title").textContent = title;
+    $("food-message").textContent = message;
     show(overlay);
     const cleanup = (value) => {
       hide(overlay);
@@ -227,7 +247,7 @@ async function handleScanLog() {
     showScanResult({
       ok: false,
       title: "Unknown medication",
-      detail: `Tag medication "${medId}" is not recognized. Use latuda or lamotrigine.`,
+      detail: `Tag medication "${medId}" is not recognized. Use latuda, lamotrigine, or pantoprazole.`,
     });
     return true;
   }
@@ -266,12 +286,28 @@ async function handleScanLog() {
 
     let ateCalories = null;
     let foodAnswered = false;
+    let willWait30Min = null;
+    let waitPromptAnswered = false;
+    let promptNote = "";
 
-    if (MEDS[medId].needsFoodPrompt && !hasFoodAnswerTodayLocal()) {
+    const prompt = MEDS[medId].prompt;
+    if (prompt && !hasPromptAnswerTodayLocal(medId)) {
       hide($("scan-spinner"));
-      ateCalories = await askFoodPrompt();
-      foodAnswered = true;
-      markFoodAnsweredLocal();
+      const answer = await askYesNoPrompt(prompt);
+      markPromptAnsweredLocal(medId);
+      if (prompt.kind === "calories") {
+        ateCalories = answer;
+        foodAnswered = true;
+        promptNote = answer
+          ? " Food check: yes, ~300+ calories."
+          : " Food check: no.";
+      } else if (prompt.kind === "wait30") {
+        willWait30Min = answer;
+        waitPromptAnswered = true;
+        promptNote = answer
+          ? " Will wait 30 minutes before eating."
+          : " Noted: may not wait 30 minutes before food.";
+      }
       show($("scan-spinner"));
       $("scan-title").textContent = "Saving…";
     }
@@ -285,6 +321,8 @@ async function handleScanLog() {
       token,
       ateCalories,
       foodAnswered,
+      willWait30Min,
+      waitPromptAnswered,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
       userAgent: navigator.userAgent.slice(0, 180),
       createdAt: serverTimestamp(),
@@ -293,16 +331,10 @@ async function handleScanLog() {
     markLoggedLocal(medId, takenAt);
     hide($("scan-spinner"));
 
-    const foodLine =
-      ateCalories === null
-        ? ""
-        : ateCalories
-          ? " Food check: yes, ~300+ calories."
-          : " Food check: no.";
     showScanResult({
       ok: true,
       title: `${MEDS[medId].label} logged`,
-      detail: `${formatWhen(takenAt)}.${foodLine} History and Mood are unlocked on this phone.`,
+      detail: `${formatWhen(takenAt)}.${promptNote} History and Mood are unlocked on this phone.`,
       medId,
     });
     stripTokenFromUrl();
@@ -330,6 +362,7 @@ async function loadDashboard() {
   hide(errEl);
   $("latuda-state").textContent = "Loading…";
   $("lamotrigine-state").textContent = "Loading…";
+  $("pantoprazole-state").textContent = "Loading…";
   $("med-log-list").innerHTML = "";
   $("mood-log-list").innerHTML = "";
 
@@ -339,44 +372,41 @@ async function loadDashboard() {
     const medSnap = await getDocs(medQ);
     const meds = medSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-    const latudaToday = meds.find((m) => m.medication === "latuda" && m.dayKey === today);
-    const lamToday = meds.find((m) => m.medication === "lamotrigine" && m.dayKey === today);
+    function fillTodayPill(medId, pillId, stateId) {
+      const entry = meds.find((m) => m.medication === medId && m.dayKey === today);
+      const pill = $(pillId);
+      if (entry) {
+        pill.classList.add("taken");
+        let extra = "";
+        if (entry.ateCalories === true) extra = " · ate";
+        if (entry.ateCalories === false) extra = " · no food";
+        if (entry.willWait30Min === true) extra = " · wait 30m";
+        if (entry.willWait30Min === false) extra = " · no wait";
+        $(stateId).textContent = `Taken ${formatWhen(entry.takenAt)}${extra}`;
+      } else {
+        pill.classList.remove("taken");
+        $(stateId).textContent = "Not logged yet today";
+      }
+    }
 
-    const latudaPill = $("latuda-pill");
-    const lamPill = $("lamotrigine-pill");
-    if (latudaToday) {
-      latudaPill.classList.add("taken");
-      let food = "";
-      if (latudaToday.ateCalories === true) food = " · ate";
-      if (latudaToday.ateCalories === false) food = " · no food";
-      $("latuda-state").textContent = `Taken ${formatWhen(latudaToday.takenAt)}${food}`;
-    } else {
-      latudaPill.classList.remove("taken");
-      $("latuda-state").textContent = "Not logged yet today";
-    }
-    if (lamToday) {
-      lamPill.classList.add("taken");
-      $("lamotrigine-state").textContent = `Taken ${formatWhen(lamToday.takenAt)}`;
-    } else {
-      lamPill.classList.remove("taken");
-      $("lamotrigine-state").textContent = "Not logged yet today";
-    }
+    fillTodayPill("latuda", "latuda-pill", "latuda-state");
+    fillTodayPill("lamotrigine", "lamotrigine-pill", "lamotrigine-state");
+    fillTodayPill("pantoprazole", "pantoprazole-pill", "pantoprazole-state");
 
     if (meds.length === 0) {
       $("med-log-list").innerHTML = `<li class="empty">No medication logs yet. Scan a tag to create one.</li>`;
     } else {
       $("med-log-list").innerHTML = meds
         .map((m) => {
-          const food =
-            m.ateCalories === true
-              ? " · ate 300+ cal"
-              : m.ateCalories === false
-                ? " · no food flag"
-                : "";
+          let flags = "";
+          if (m.ateCalories === true) flags = " · ate 300+ cal";
+          else if (m.ateCalories === false) flags = " · no food flag";
+          if (m.willWait30Min === true) flags = " · wait 30 min before food";
+          else if (m.willWait30Min === false) flags = " · no wait before food";
           return `<li>
             <div>
               <div class="title">${m.medicationLabel || m.medication}</div>
-              <div class="sub">${m.dayKey}${food}</div>
+              <div class="sub">${m.dayKey}${flags}</div>
             </div>
             <div class="time">${formatWhen(m.takenAt)}</div>
           </li>`;

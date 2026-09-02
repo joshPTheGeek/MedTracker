@@ -17,7 +17,7 @@
       <header class="header">
         <div class="brand">
           <h1>MedTracker</h1>
-          <span>Latuda · Lamotrigine · Mood</span>
+          <span>Latuda · Lamotrigine · Pantoprazole · Mood</span>
         </div>
         <button type="button" class="btn btn-ghost hidden" id="lock-btn">Lock</button>
       </header>
@@ -39,8 +39,8 @@
         <div id="home-default" class="card">
           <h2>Scan a tag to log a dose</h2>
           <p class="lead">
-            Tap your phone to the Latuda or Lamotrigine NFC tag. That logs the dose and unlocks
-            History and Mood on this phone — no email or password.
+            Tap your phone to a medication NFC tag. That logs the dose and unlocks History and Mood
+            on this phone — no email or password.
           </p>
           <ul class="log-list">
             <li>
@@ -54,6 +54,13 @@
               <div>
                 <div class="title">Lamotrigine tag</div>
                 <div class="sub">Logs time only</div>
+              </div>
+              <div class="time">NFC</div>
+            </li>
+            <li>
+              <div>
+                <div class="title">Pantoprazole tag</div>
+                <div class="sub">Morning — reminds you to wait 30 min before food</div>
               </div>
               <div class="time">NFC</div>
             </li>
@@ -98,6 +105,10 @@
               <div class="name">Lamotrigine</div>
               <div class="state" id="lamotrigine-state">—</div>
             </div>
+            <div class="today-pill" id="pantoprazole-pill">
+              <div class="name">Pantoprazole</div>
+              <div class="state" id="pantoprazole-state">—</div>
+            </div>
           </div>
         </div>
         <div class="card">
@@ -139,7 +150,7 @@
     <div id="food-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="food-title">
       <div class="modal">
         <h2 id="food-title">Food check</h2>
-        <p>Did you eat 300 calories in the last hour?</p>
+        <p id="food-message">Did you eat 300 calories in the last hour?</p>
         <div class="btn-row">
           <button type="button" class="btn btn-secondary" id="food-no">No</button>
           <button type="button" class="btn btn-success" id="food-yes">Yes</button>

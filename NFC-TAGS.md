@@ -20,21 +20,27 @@ https://joshPTheGeek.github.io/MedTracker/?log=lamotrigine&token=YOUR_WRITE_TOKE
 
 Logs date/time only (no food prompt).
 
+## Tag 3 — Pantoprazole
+
+```text
+https://joshPTheGeek.github.io/MedTracker/?log=pantoprazole&token=YOUR_WRITE_TOKEN
+```
+
+Morning dose. Asks once per day: **Will you wait 30 minutes before eating?** then saves date/time.
+
 ## Steps in NFC Tools
 
 1. Open **NFC Tools** → **Write** / **Add a record**.
 2. Choose **URL / URI**.
-3. Paste the Latuda URL → write to the first tag.
-4. Repeat with the Lamotrigine URL on the second tag.
-5. Label the physical tags so you do not mix them up.
+3. Paste each URL above onto its own tag.
+4. Label the physical tags so you do not mix them up.
 
 ## Rules
 
 | Item | Value |
 |------|--------|
 | Site | `https://joshPTheGeek.github.io/MedTracker/` |
-| Token | Same on both tags + in Firestore rules |
-| Password | **Not** on the tag — only for viewing History/Mood |
+| Token | Same on all tags + in Firestore rules |
 | Sign-in to log | **Not required** |
 
 ## Generate a token (PowerShell, no downloads)
@@ -45,4 +51,4 @@ Logs date/time only (no food prompt).
 
 ## Test without a physical tag
 
-Open the Latuda URL in your phone browser after Pages + Firebase are live.
+Open any medication URL in your phone browser after Pages + Firebase are live.
